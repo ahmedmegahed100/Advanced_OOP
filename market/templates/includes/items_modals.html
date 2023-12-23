@@ -54,6 +54,8 @@
       <div class="modal-body">
         <form method="POST">
           {{ purchase_form.hidden_tag() }}
+                  <input id="action" name="action" type="hidden" value="purchase">
+
           <h4 class="text-center">
             Are you sure you want to buy {{ item.name }} for {{ item.price }}$ ?
           </h4>

@@ -23,6 +23,8 @@
       <div class="modal-body">
         <form method="POST">
           {{ selling_form.hidden_tag() }}
+            <input id="action" name="action" type="hidden" value="sell">
+
           <h4 class="text-center">
             Are you sure you want to sell {{ owned_item.name }} for {{ owned_item.price }}$ ?
           </h4>
