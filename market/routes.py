@@ -73,7 +73,7 @@ def login_page():
             flash(f'Success! You are logged in as: {attempted_user.username}', category='success')
             return redirect(url_for('market_page'))
         else:
-            flash('Username and password are not match! Please try again', category='danger')
+            flash('Username and password does not match! Please try again', category='danger')
 
     return render_template('login.html', form=form)
 
