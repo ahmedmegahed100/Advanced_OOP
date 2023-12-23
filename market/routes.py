@@ -5,6 +5,15 @@ from market.forms import RegisterForm, LoginForm, PurchaseItemForm, SellItemForm
 from market import db
 from flask_login import login_user, logout_user, login_required, current_user
 
+from market.services import user_service
+from market.services.ItemServiceImpl import ItemServiceImpl
+from market.services.base_service import BaseService
+from market.services.item_service import ItemService
+from market.services.user_service import UserService
+user_service: BaseService = UserService()
+item_service: ItemService = ItemServiceImpl()
+
+
 @app.route('/')
 @app.route('/home')
 def home_page():
@@ -15,65 +24,59 @@ def home_page():
 def market_page():
     purchase_form = PurchaseItemForm()
     selling_form = SellItemForm()
-    if request.method == "POST":
-        #Purchase Item Logic
-        purchased_item = request.form.get('purchased_item')
-        p_item_object = Item.query.filter_by(name=purchased_item).first()
-        if p_item_object:
-            if current_user.can_purchase(p_item_object):
-                p_item_object.buy(current_user)
-                flash(f"Congratulations! You purchased {p_item_object.name} for {p_item_object.price}$", category='success')
-            else:
-                flash(f"Unfortunately, you don't have enough money to purchase {p_item_object.name}!", category='danger')
-        #Sell Item Logic
-        sold_item = request.form.get('sold_item')
-        s_item_object = Item.query.filter_by(name=sold_item).first()
-        if s_item_object:
-            if current_user.can_sell(s_item_object):
-                s_item_object.sell(current_user)
-                flash(f"Congratulations! You sold {s_item_object.name} back to market!", category='success')
-            else:
-                flash(f"Something went wrong with selling {s_item_object.name}", category='danger')
 
+    if request.method == "POST":
+        # Purchase Item Logic
+        purchased_item = request.form.get('purchased_item')
+        if item_service.purchase_item(purchased_item, current_user.id):
+            flash(f"Congratulations! You purchased {purchased_item}!", category='success')
+        else:
+            flash(f"Unfortunately, you don't have enough money to purchase {purchased_item}!", category='danger')
+
+        # Sell Item Logic
+        sold_item = request.form.get('sold_item')
+        if item_service.sell_item(sold_item, current_user.id):
+            flash(f"Congratulations! You sold {sold_item} back to market!", category='success')
+        else:
+            flash(f"Something went wrong with selling {sold_item}", category='danger')
 
         return redirect(url_for('market_page'))
 
     if request.method == "GET":
-        items = Item.query.filter_by(owner=None)
-        owned_items = Item.query.filter_by(owner=current_user.id)
+        items = item_service.get_all_items()
+        owned_items = item_service.get_owned_items(current_user.id)
         return render_template('market.html', items=items, purchase_form=purchase_form, owned_items=owned_items, selling_form=selling_form)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register_page():
     form = RegisterForm()
     if form.validate_on_submit():
-        user_to_create = User(username=form.username.data,
-                              email_address=form.email_address.data,
-                              password=form.password1.data)
-        db.session.add(user_to_create)
-        db.session.commit()
-        login_user(user_to_create)
-        flash(f"Account created successfully! You are now logged in as {user_to_create.username}", category='success')
-        return redirect(url_for('market_page'))
-    if form.errors != {}: #If there are not errors from the validations
-        for err_msg in form.errors.values():
-            flash(f'There was an error with creating a user: {err_msg}', category='danger')
+        username = form.username.data
+        email = form.email_address.data
+        password = form.password1.data
+        if user_service.register_user(username, email, password):
+            # Registration successful
+            flash(f"Account created successfully! You are now logged in as {username}", category='success')
+            return redirect(url_for('market_page'))
+        else:
+            flash('Username or email address already exists! Please try a different one', category='danger')
 
     return render_template('register.html', form=form)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     form = LoginForm()
     if form.validate_on_submit():
-        attempted_user = User.query.filter_by(username=form.username.data).first()
-        if attempted_user and attempted_user.check_password_correction(
-                attempted_password=form.password.data
-        ):
-            login_user(attempted_user)
-            flash(f'Success! You are logged in as: {attempted_user.username}', category='success')
+        username = form.username.data
+        password = form.password.data
+        user = user_service.login_user(username, password)
+        if user:
+            login_user(user)
+            flash(f'Success! You are logged in as: {username}', category='success')
             return redirect(url_for('market_page'))
         else:
-            flash('Username and password does not match! Please try again', category='danger')
+            flash('Username and password do not match! Please try again', category='danger')
 
     return render_template('login.html', form=form)
 
